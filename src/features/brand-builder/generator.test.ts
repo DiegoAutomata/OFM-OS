@@ -45,7 +45,19 @@ describe("generation model and final validation", () => {
     );
     generated.finalBio = generated.routes[0].discoveryBio;
     expect(() => validateFinalPlaybook(camiExample.input, generated)).toThrow(
-      "has no conversation CTA",
+      "has no closing conversation CTA",
+    );
+  });
+
+  it("blocks identity contamination between cis and trans profiles", () => {
+    const generated = generateMockBrandPlaybook({ profile: camiExample.input, photos });
+    generated.routes[0].discoveryBio = generated.routes[0].discoveryBio.replace(
+      /im Cami, 23/i,
+      "im Cami, 23, trans",
+    );
+    generated.finalBio = generated.routes[0].discoveryBio;
+    expect(() => validateFinalPlaybook(camiExample.input, generated)).toThrow(
+      "introduces a trans identity not present in the profile",
     );
   });
 });

@@ -18,19 +18,25 @@ export const coreBrandRules: MemoryRule[] = [
     id: "one-fantasy-per-bio",
     scope: "global",
     title: "One fantasy engine",
-    rule: "Build each bio around one instantly understood scene and tension. Every sentence must advance that same fantasy, create curiosity, or deliver the CTA.",
+    rule: "Build each bio as a compact micro-story: identity hook, instantly understood scene, escalating tension or reversal, then a CTA that completes the same fantasy.",
+  },
+  {
+    id: "reader-inside-scene",
+    scope: "global",
+    title: "Make the reader participate",
+    rule: "Address the reader directly and give them a role in the scene. The bio should make them imagine what happens between creator and reader, not merely observe a description.",
   },
   {
     id: "texture-is-optional",
     scope: "global",
     title: "Texture is optional",
-    rule: "Hobbies, outfits, music, work and daily-life details are context, not a checklist. Use no more than two only when they intensify the central fantasy.",
+    rule: "Hobbies, outfits, work, body details and daily-life facts are raw material, not a checklist. Select only the few signals that intensify one scene; omit everything else.",
   },
   {
     id: "visible-traits-implicit",
     scope: "global",
-    title: "Do not narrate the profile photo",
-    rule: "Do not inventory ordinary physical traits the viewer can already see. A distinctive trait may appear only inside a joke, consequence or scene.",
+    title: "Physical details need a job",
+    rule: "Never inventory the profile photo. A distinctive physical trait may be used as proof inside a joke, contrast, consequence or power dynamic when the profile supports it.",
   },
   {
     id: "natural-self-description",
@@ -67,6 +73,24 @@ export const coreBrandRules: MemoryRule[] = [
     scope: "global",
     title: "Natural creator voice",
     rule: "Bios should sound like the model texting, not like an agency, a corporate copywriter, or an AI.",
+  },
+  {
+    id: "texting-register",
+    scope: "global",
+    title: "Character-specific texting register",
+    rule: "Use contractions and native chat shorthand such as im, u, dont or lol only when they fit the creator's age, personality and market. Natural imperfection is useful; a repeated house style is not.",
+  },
+  {
+    id: "compressed-emotional-payoff",
+    scope: "global",
+    title: "Compression with emotional payoff",
+    rule: "In 55-90 words, create a clear feeling such as challenge, trouble, safety, jealousy, curiosity or surrender. Cut any sentence that only restates intake data.",
+  },
+  {
+    id: "anchors-are-not-templates",
+    scope: "global",
+    title: "Transfer patterns, never content",
+    rule: "Approved examples calibrate scene, tension, specificity, compression and CTA quality. Never borrow their setting, wardrobe, body feature, kink, wording or sentence rhythm unless the current profile independently supports it.",
   },
   {
     id: "trans-central-not-flat",
@@ -112,13 +136,18 @@ export function selectRelevantRules(profile: ModelProfile) {
     .join(" ")
     .toLowerCase();
 
+  const isTrans = /\btrans\b/.test(profile.identityGender.toLowerCase());
+  const isEmojiFriendly =
+    /sweet|soft|playful|gamer|yoga|girl.next.door|spoiled|princess|cute|brat|college/.test(
+      text,
+    );
+
   return coreBrandRules.filter((rule) => {
-    if (rule.scope === "global" || rule.scope === "market") {
-      return true;
+    if (rule.scope === "global" || rule.scope === "market") return true;
+    if (rule.id === "trans-central-not-flat" || rule.id === "trans-route-diversity") {
+      return isTrans;
     }
-    if (profile.identityGender.toLowerCase().includes("trans")) {
-      return true;
-    }
-    return /sweet|soft|playful|gamer|yoga|girl|spoiled|princess|latina/.test(text);
+    if (rule.id === "emoji-by-character") return isEmojiFriendly;
+    return false;
   });
 }

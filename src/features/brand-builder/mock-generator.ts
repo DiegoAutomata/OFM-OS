@@ -4,8 +4,9 @@ import type { BrandPlaybook, ModelIntake } from "./schemas";
 export function generateMockBrandPlaybook(intake: ModelIntake): BrandPlaybook {
   const name = intake.profile.name || "New Model";
   const isTrans = intake.profile.identityGender.toLowerCase().includes("trans");
+  const isolatedSample = structuredClone(samplePlaybook);
   const base = {
-    ...samplePlaybook,
+    ...isolatedSample,
     modelName: name,
     stageNameSuggestions: isTrans
       ? [name === "I don't have yet" ? "Mila Noir" : name, "Mila Bloom", "Luna Voss"]

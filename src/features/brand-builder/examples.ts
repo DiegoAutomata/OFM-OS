@@ -158,12 +158,152 @@ export const kiaraExample = {
     "Creates a familiar public-looking/private-returning tension without listing clothes or fetishes. It stays broad enough for different levels of curiosity.",
 };
 
+export const emmaExample = {
+  input: {
+    name: "Emma Brooks",
+    identityGender: "Mujer Cis",
+    age: 26,
+    ageVerified: true,
+    country: "Canada",
+    city: "",
+    primaryBodyType: "Athletic",
+    secondaryBodyType: "Tall",
+    height: "1.78",
+    birthday: "1999-06-21",
+    zodiacSign: "Cancer",
+    visualTraits:
+      "Long legs, toned abs, strong thighs, sharp jawline, green eyes, confident smile",
+    styleTags: ["Fitness", "Sporty", "Clean girl", "Casual luxury"],
+    realPersonality: "Disciplined, competitive, sarcastic, emotionally guarded",
+    comfortablePersonalityOnline: [
+      "Cocky fitness girl",
+      "Strict trainer",
+      "Teasing",
+      "Bratty winner energy",
+    ],
+    forbiddenContent:
+      "No content with other people, no hardcore BDSM, no humiliation, no public nudity",
+    availableAssets:
+      "Sports bras, leggings, running shorts, gym sets, bikinis, oversized hoodies, knee-high socks, sneakers",
+    hobbies:
+      "Weight training, running, hiking, sauna, meal prep, watching combat sports",
+    normalLifeDetails:
+      "Works as a personal trainer, wakes up early to train, films gym check-ins, tracks her workouts, usually wears leggings or oversized hoodies at home",
+    musicTaste: "Hip hop, gym phonk, techno, alternative rock",
+    additionalPhysicalTraits:
+      "Natural small boobs, defined abs, long toned legs, round athletic ass, tan lines, veiny hands, tight waist",
+    confirmedFetishesOrNiches:
+      "Fitness, athletic, abs, leggings, sweat, gym crush, trainer roleplay, JOI, domination, bratty, bikini, tall girl",
+  } satisfies ModelProfile,
+  bio:
+    "Im Emma, 26, a tall gym girl and the reason boys start lifting heavier when they know im watching 😏 I see u trying to act strong, but your focus gets real weak when my leggings show up lol. Im not easy to impress, so dont come lazy. Dm me and tell me what would break first, your form or your self control",
+  lesson:
+    "Compresses trainer authority, gym behavior and leggings into one challenge. The reader becomes the lifter being tested, and the closing choice completes that scene.",
+};
+
+export const sofiaExample = {
+  input: {
+    name: "Sofía Lane",
+    identityGender: "Mujer Cis",
+    age: 20,
+    ageVerified: true,
+    country: "Spain",
+    city: "",
+    primaryBodyType: "Petite",
+    secondaryBodyType: "Slim",
+    height: "1.54",
+    birthday: "2006-03-03",
+    zodiacSign: "Pisces",
+    visualTraits: "Big innocent eyes, small waist, soft lips, cute face, tiny frame",
+    styleTags: ["Coquette", "Soft girl", "College", "Pastel", "Innocent-looking"],
+    realPersonality: "Sweet, distracted, playful, a little spoiled",
+    comfortablePersonalityOnline: [
+      "Bratty college girl",
+      "Needy",
+      "Tease",
+      "Fake innocent",
+      "Princess",
+    ],
+    forbiddenContent:
+      "No content with other people, no anal, no hardcore BDSM, no extreme degradation",
+    availableAssets:
+      "Pleated skirts, thigh-high socks, crop tops, oversized sweaters, lace lingerie, cute pajamas, glasses, chokers, pink room setup",
+    hobbies:
+      "Studying languages, journaling, taking mirror selfies, shopping for cute outfits, watching romance shows",
+    normalLifeDetails:
+      "Goes to university, lives in a shared apartment, always studies last minute, takes too many mirror selfies before class, spends too much time choosing outfits",
+    musicTaste: "Pop, K-pop, reggaeton, soft indie",
+    additionalPhysicalTraits:
+      "Small boobs, pretty feet, smooth skin, natural pink lips, small hands, flat stomach",
+    confirmedFetishesOrNiches:
+      "Petite, college, brat, princess, feet, socks, lingerie, innocent, teasing, GFE, submissive, try-on content",
+  } satisfies ModelProfile,
+  bio:
+    "Im Sofii, 20, tiny and way too cute for how much trouble I cause 🤭 I sit down to study in a lil skirt and socks, then somehow u are the one begging me to behave lol. I look innocent till I get bored... and bored girls do dumb things for attention. Dm me and tell me what I should do instead of studying",
+  lesson:
+    "Turns a normal study session into escalating bratty trouble. Outfit details support the scene, while the unfinished study decision gives the reader a playful role.",
+};
+
+export const ariExample = {
+  input: {
+    name: "Ari Bell",
+    identityGender: "Mujer Trans",
+    age: 29,
+    ageVerified: true,
+    country: "Brazil",
+    city: "",
+    primaryBodyType: "Curvy",
+    secondaryBodyType: "Tall",
+    height: "1.76",
+    birthday: "1996-09-19",
+    zodiacSign: "Virgo",
+    visualTraits:
+      "Strong eye contact, full lips, wide hips, thick thighs, long hair, elegant hands",
+    styleTags: ["Elegant", "Sexy", "Mature", "Lingerie", "Night-out dresses"],
+    realPersonality: "Calm, confident, nurturing, direct",
+    comfortablePersonalityOnline: [
+      "Mommy energy",
+      "Dominant but affectionate",
+      "Teasing",
+      "Protective",
+      "Seductive",
+    ],
+    forbiddenContent: "No piss, no content with other people, no public nudity",
+    availableAssets:
+      "Lace lingerie, satin robes, bodysuits, thigh-high stockings, heels, elegant dresses, toys, red lipstick, jewelry",
+    hobbies:
+      "Cooking dinner, dancing samba, skincare, watching old movies, getting ready for nights out",
+    normalLifeDetails:
+      "Lives alone, works as a hair stylist, likes taking her time getting ready, usually cooks at night, has a very clean apartment and loves soft lighting",
+    musicTaste: "Brazilian funk, bossa nova, R&B, disco",
+    additionalPhysicalTraits:
+      "Breast implants, big dick, thick thighs, soft belly, round ass, long nails, smooth skin",
+    confirmedFetishesOrNiches:
+      "Trans, shemale, big dick, mature, mommy, femdom, sissy fantasy, stockings, lingerie, heels, JOI, role reversal, GFE",
+  } satisfies ModelProfile,
+  bio:
+    "Im Ari, 29, trans and the kind of mommy who makes u feel safe till u realize im in control 😘 I look soft in lace, but dont let that confuse u... thick thighs, big dick and a calm voice can change your attitude real fast lol. I can spoil u, tease u, then tell u exactly what to do. Dm me and tell me if u need mommy sweet or mommy strict tonight.",
+  lesson:
+    "Builds one safety-versus-control contrast from explicitly confirmed identity, body and femdom signals. The sweet-or-strict choice lets the reader select a mood without turning the bio into a menu.",
+};
+
+export const clientApprovedExamples = [emmaExample, sofiaExample, ariExample];
+
+export const approvedStylePrinciples = [
+  "Create a compact emotional arc: recognizable identity, relatable moment, tension or reversal, then an in-scene CTA.",
+  "Make the reader a participant by addressing them directly and giving them a choice, challenge or imagined consequence.",
+  "Use a few profile-specific details as evidence inside the scene; never summarize the intake or copy an example's details.",
+  "Prefer conversational English and character-appropriate texting shorthand over polished marketing copy, without forcing the same slang on every creator.",
+  "Leave the reader with a clear feeling or fantasy in 55-90 words; every sentence must earn its space.",
+];
+
 export const canonicalExamples = [
   camiExample,
   milaExample,
   valentinaExample,
   zoeExample,
   kiaraExample,
+  ...clientApprovedExamples,
 ];
 
 export function selectCanonicalExamples(profile: ModelProfile, limit = 2) {
@@ -184,7 +324,10 @@ function similarityScore(
   profileTokens: Set<string>,
 ) {
   const exampleTokens = profileSearchTokens(example);
-  let score = profile.identityGender.toLowerCase() === example.identityGender.toLowerCase() ? 12 : 0;
+  let score = normalizeIdentityGender(profile.identityGender) ===
+    normalizeIdentityGender(example.identityGender)
+    ? 12
+    : 0;
   for (const token of exampleTokens) {
     if (profileTokens.has(token)) score += 1;
   }
@@ -203,9 +346,21 @@ function profileSearchTokens(profile: ModelProfile) {
       profile.confirmedFetishesOrNiches,
     ]
       .join(" ")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
       .toLowerCase()
       .match(/[a-z0-9]+/g) ?? [],
   );
+}
+
+function normalizeIdentityGender(value: string) {
+  const normalized = value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  if (/\btrans\b/.test(normalized)) return "trans-woman";
+  if (/\b(cis|woman|mujer)\b/.test(normalized)) return "cis-woman";
+  return normalized.trim();
 }
 
 export const samplePlaybook: BrandPlaybook = {

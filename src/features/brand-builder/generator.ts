@@ -3,7 +3,7 @@ import { generateObject } from "ai";
 import { franc } from "franc-min";
 import { z } from "zod";
 import { readEnv } from "@/lib/env";
-import { selectCanonicalExamples } from "./examples";
+import { approvedStylePrinciples, selectCanonicalExamples } from "./examples";
 import { selectRelevantRules } from "./memory";
 import { generateMockBrandPlaybook } from "./mock-generator";
 import {
@@ -73,7 +73,9 @@ async function generateWithGpt55(profile: ModelProfile, apiKey: string) {
     model: example.input.name,
     input: example.input,
     approvedBio: example.bio,
-    lesson: example.lesson,
+    transferableLesson: example.lesson,
+    usagePolicy:
+      "Calibrate quality from the lesson. Do not borrow this example's facts, setting, kink, wardrobe, wording, CTA or sentence rhythm.",
   }));
   const approvedMemory = await selectApprovedMemory(profile, 4);
 
@@ -85,7 +87,13 @@ async function generateWithGpt55(profile: ModelProfile, apiKey: string) {
     maxOutputTokens: 3_000,
     system: strategySystemPrompt(),
     prompt: JSON.stringify(
-      { profile, relevantRules, qualityAnchors, approvedMemory },
+      {
+        profile,
+        approvedStylePrinciples,
+        relevantRules,
+        qualityAnchors,
+        approvedMemory,
+      },
       null,
       2,
     ),
@@ -102,6 +110,7 @@ async function generateWithGpt55(profile: ModelProfile, apiKey: string) {
       {
         profile,
         strategy: strategy.object,
+        approvedStylePrinciples,
         relevantRules,
         qualityAnchors,
         approvedMemory,
@@ -123,6 +132,7 @@ async function generateWithGpt55(profile: ModelProfile, apiKey: string) {
         profile,
         strategy: strategy.object,
         drafts: writing.object,
+        approvedStylePrinciples,
         relevantRules,
         qualityAnchors,
         approvedMemory,
@@ -254,12 +264,20 @@ export function validateFinalPlaybook(profile: ModelProfile, output: BrandPlaybo
     if (!/\b(i|im|i'm|my|me)\b/i.test(bio)) {
       failures.push(`${route.routeId} is not written in first person`);
     }
-    if (!/\b(dm|message|text|tell me|say hi|come say hi|send me)\b/i.test(bio)) {
-      failures.push(`${route.routeId} has no conversation CTA`);
+    if (!hasClosingConversationCta(bio)) {
+      failures.push(`${route.routeId} has no closing conversation CTA`);
     }
     if (countEmojis(bio) > 3) failures.push(`${route.routeId} uses more than 3 emojis`);
     if (mentionsPublicBoundary(bio)) {
       failures.push(`${route.routeId} announces a private content boundary`);
+    }
+    const profileIsTrans = /\btrans\b/i.test(profile.identityGender);
+    const bioMentionsTrans = /\btrans\b/i.test(bio);
+    if (profileIsTrans && !bioMentionsTrans) {
+      failures.push(`${route.routeId} hides the model's trans identity`);
+    }
+    if (!profileIsTrans && bioMentionsTrans) {
+      failures.push(`${route.routeId} introduces a trans identity not present in the profile`);
     }
   }
 
@@ -295,13 +313,15 @@ function strategySystemPrompt() {
     "You are the senior brand strategist for early-stage adult creators.",
     "Return only valid JSON. No markdown, no commentary, no prose before or after the JSON object.",
     "Plan exactly three genuinely different discovery-first routes for the supplied verified adult profile.",
-    "Each route needs one fantasy engine: one relatable scene, one emotional or sexual tension, and no more than two useful profile details.",
+    "Each route needs one fantasy engine: a recognizable identity hook, one relatable scene, one emotional or sexual tension, and a reader role.",
+    "Select two to four mutually reinforcing profile anchors for each route. Name, age and identity do not count toward that budget. Closely related details may form one contrast or proof beat.",
     "Classify everything else as ignored texture. Do not force the intake into the bio.",
     "Personality and niches must be demonstrated through behavior, never announced as labels.",
     "Forbidden content is an internal hard constraint and must never become public copy.",
     "This is non-graphic public profile copy. Do not describe explicit sex acts.",
     "Only use specific power, humiliation, sissy or degradation themes when explicitly confirmed.",
     "The three scenes and CTA mechanics must not overlap.",
+    "Approved examples are quality calibration, not templates. Never import an example detail or scenario that is not independently supported by the current profile.",
   ].join("\n");
 }
 
@@ -310,13 +330,15 @@ function writingSystemPrompt() {
     "You are a specialist creator bio writer. Write exactly three English bios from the approved strategies.",
     "Return only valid JSON. No markdown, no commentary, no prose before or after the JSON object.",
     "Every bio must contain 55-90 words, use first person, include no more than three character-appropriate emojis, and end with a short in-character invitation to DM or message.",
-    "Sound like a real creator texting: casual, imperfect and immediate. Adapt slang to the person instead of forcing the same im/u/lol voice on everyone.",
-    "Never list traits, body parts, clothes, hobbies, niches or assets. Show the character inside one scene.",
-    "Do not narrate visible appearance unless a distinctive trait becomes a joke or consequence.",
+    "Write a compact micro-story, not a static description: establish who she is, put the reader into a believable moment, escalate or reverse the tension, then make the CTA complete that moment.",
+    "Sound like a real creator texting: casual, imperfect and immediate. Use im/u/dont/lol or similar shorthand only when it fits this specific creator; do not turn it into a mandatory house voice.",
+    "Use selected traits, body details, clothes, hobbies, niches or assets only as active evidence inside the scene. Never stack them into an inventory.",
+    "A distinctive visible or physical detail is useful when it causes a reaction, joke, contrast or power shift; otherwise omit it.",
+    "Address the reader directly and make them imagine a choice, challenge, consequence or role.",
     "Avoid agency language, poetic mystery, third-person labels, generic selling and AI phrases such as 'a little dangerous', 'by day/by night', or 'the girl your friends warned you about'.",
-    "Do not state content restrictions. Do not copy an example sentence or CTA.",
+    "Do not state content restrictions. Do not copy an example's sentence, CTA, setting, wardrobe, fetish, detail sequence or cadence.",
     "Keep the public bio suggestive but non-graphic; do not describe explicit sex acts.",
-    "Every sentence must create the scene, increase tension, reveal behavior or prompt the message.",
+    "Every sentence must create the scene, increase tension, reveal behavior or prompt the message. Cut intake facts that do not earn an emotional payoff.",
   ].join("\n");
 }
 
@@ -324,11 +346,13 @@ function reviewSystemPrompt() {
   return [
     "You are the final editor and quality gate. Return a complete three-route Brand Builder playbook in English.",
     "Return only valid JSON. No markdown, no commentary, no prose before or after the JSON object.",
-    "Independently score every route for natural voice, curiosity, sexual tension, focus, CTA and boundaries.",
+    "Independently score every route for natural voice, curiosity, sexual tension, scene and story, profile specificity, compression, focus, CTA and boundaries.",
     "If any dimension would score below 8, rewrite that route now and score the rewritten version only.",
     "All three routes must be publishable, distinct and 55-90 words. Do not merely choose one good route and leave two weaker routes.",
-    "The creator must speak in first person. Keep one central scene, imply personality, use at most two source details and finish with a short CTA that continues the scene.",
-    "Remove trait inventories, visible-body descriptions, forbidden-content statements, empty mystery, AI cliches and repeated trans reveal or domination formulas.",
+    "The creator must speak in first person. Keep one central scene, make the reader a participant, and finish with a short CTA that continues the scene.",
+    "Keep only a few mutually reinforcing source details. Physical details may stay when they actively create the joke, contrast or power shift; remove inventories and decorative facts.",
+    "Reject generic copy that could fit many profiles, even if it is fluent. Reject copy that borrows an approved example's content or cadence instead of transferring its quality principles.",
+    "Remove forbidden-content statements, empty mystery, AI cliches and repeated trans reveal or domination formulas.",
     "Use confirmed adult niches without contradicting boundaries. Never infer an unconfirmed extreme fetish.",
     "Keep every final bio suggestive but non-graphic so it is suitable for a public profile.",
     "Set qualityWarnings to an empty array only after every route satisfies every requirement.",
@@ -386,6 +410,13 @@ function countEmojis(text: string) {
 function mentionsPublicBoundary(text: string) {
   return /\b(i (do not|don't|wont|won't) do|no (content|anal|bdsm|piss|outdoor nudity|other people)|nothing with other people)\b/i.test(
     text,
+  );
+}
+
+function hasClosingConversationCta(text: string) {
+  const closingWindow = text.trim().split(/\s+/).slice(-30).join(" ");
+  return /\b(dm|message|text|tell me|say hi|come say hi|send me)\b/i.test(
+    closingWindow,
   );
 }
 
