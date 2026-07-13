@@ -60,6 +60,16 @@ describe("generation model and final validation", () => {
       "introduces a trans identity not present in the profile",
     );
   });
+
+  it("blocks unverified operational promises", () => {
+    const generated = generateMockBrandPlaybook({ profile: camiExample.input, photos });
+    generated.routes[0].discoveryBio =
+      "Im Cami, 23, and the yoga teacher who acts all calm until you watch me stretch too long. I get quiet when you stare, then make you pick the pose that got your attention first. Dont pretend it was innocent when your answer says otherwise. I reply to every DM, so message me now.";
+    generated.finalBio = generated.routes[0].discoveryBio;
+    expect(() => validateFinalPlaybook(camiExample.input, generated)).toThrow(
+      "invents an unverified operational promise",
+    );
+  });
 });
 
 describe("English output validation", () => {

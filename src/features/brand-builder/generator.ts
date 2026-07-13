@@ -271,6 +271,9 @@ export function validateFinalPlaybook(profile: ModelProfile, output: BrandPlaybo
     if (mentionsPublicBoundary(bio)) {
       failures.push(`${route.routeId} announces a private content boundary`);
     }
+    if (hasUnverifiedOperationalPromise(bio)) {
+      failures.push(`${route.routeId} invents an unverified operational promise`);
+    }
     const profileIsTrans = /\btrans\b/i.test(profile.identityGender);
     const bioMentionsTrans = /\btrans\b/i.test(bio);
     if (profileIsTrans && !bioMentionsTrans) {
@@ -313,10 +316,12 @@ function strategySystemPrompt() {
     "You are the senior brand strategist for early-stage adult creators.",
     "Return only valid JSON. No markdown, no commentary, no prose before or after the JSON object.",
     "Plan exactly three genuinely different discovery-first routes for the supplied verified adult profile.",
-    "Each route needs one fantasy engine: a recognizable identity hook, one relatable scene, one emotional or sexual tension, and a reader role.",
+    "Each route needs one coherent fantasy engine: a recognizable profile-specific identity anchor, one relatable scene, one emotional or sexual tension, and a specific reader role.",
     "Select two to four mutually reinforcing profile anchors for each route. Name, age and identity do not count toward that budget. Closely related details may form one contrast or proof beat.",
     "Classify everything else as ignored texture. Do not force the intake into the bio.",
-    "Personality and niches must be demonstrated through behavior, never announced as labels.",
+    "A brief identity anchor is allowed when it is genuinely supported (for example a real role, supported niche, or relationship energy). Do not label-dump; demonstrate the rest of the personality through behavior.",
+    "Plan a CTA that asks the reader to choose, admit, challenge, answer or imagine something specific to this route. Do not settle for a bare 'DM me'.",
+    "The intake does not authorize operational promises. Do not plan claims about replies, custom work, priority, free content, schedules, streams, posting frequency, pricing, discounts, tiers, all-access or external products unless explicitly confirmed in the current profile.",
     "Forbidden content is an internal hard constraint and must never become public copy.",
     "This is non-graphic public profile copy. Do not describe explicit sex acts.",
     "Only use specific power, humiliation, sissy or degradation themes when explicitly confirmed.",
@@ -331,12 +336,14 @@ function writingSystemPrompt() {
     "Return only valid JSON. No markdown, no commentary, no prose before or after the JSON object.",
     "Every bio must contain 55-90 words, use first person, include no more than three character-appropriate emojis, and end with a short in-character invitation to DM or message.",
     "Write a compact micro-story, not a static description: establish who she is, put the reader into a believable moment, escalate or reverse the tension, then make the CTA complete that moment.",
+    "Open with one memorable identity anchor that is specific to this profile. A short supported label is fine; an adjective pile or copied creator persona is not.",
     "Sound like a real creator texting: casual, imperfect and immediate. Use im/u/dont/lol or similar shorthand only when it fits this specific creator; do not turn it into a mandatory house voice.",
     "Use selected traits, body details, clothes, hobbies, niches or assets only as active evidence inside the scene. Never stack them into an inventory.",
     "A distinctive visible or physical detail is useful when it causes a reaction, joke, contrast or power shift; otherwise omit it.",
-    "Address the reader directly and make them imagine a choice, challenge, consequence or role.",
+    "Address the reader directly and make them imagine a specific choice, challenge, consequence or role. The final invite must tell them what to say, choose, admit or do in this exact scene—not merely 'DM me'.",
     "Avoid agency language, poetic mystery, third-person labels, generic selling and AI phrases such as 'a little dangerous', 'by day/by night', or 'the girl your friends warned you about'.",
     "Do not state content restrictions. Do not copy an example's sentence, CTA, setting, wardrobe, fetish, detail sequence or cadence.",
+    "Never invent operational claims: no reply guarantees, custom requests, priority, free content, schedules, streams, daily posting, pricing, discounts, tiers, all-access, external products or catalog promises unless the profile itself explicitly confirms them.",
     "Keep the public bio suggestive but non-graphic; do not describe explicit sex acts.",
     "Every sentence must create the scene, increase tension, reveal behavior or prompt the message. Cut intake facts that do not earn an emotional payoff.",
   ].join("\n");
@@ -346,14 +353,16 @@ function reviewSystemPrompt() {
   return [
     "You are the final editor and quality gate. Return a complete three-route Brand Builder playbook in English.",
     "Return only valid JSON. No markdown, no commentary, no prose before or after the JSON object.",
-    "Independently score every route for natural voice, curiosity, sexual tension, scene and story, profile specificity, compression, focus, CTA and boundaries.",
+    "Independently score every route for natural voice, identity clarity, curiosity, sexual tension, scene and story, profile specificity, reader participation, promise honesty, route distinctiveness, compression, focus, CTA and boundaries.",
     "If any dimension would score below 8, rewrite that route now and score the rewritten version only.",
     "All three routes must be publishable, distinct and 55-90 words. Do not merely choose one good route and leave two weaker routes.",
-    "The creator must speak in first person. Keep one central scene, make the reader a participant, and finish with a short CTA that continues the scene.",
+    "The creator must speak in first person. Keep one central scene, make the reader a participant, and finish with a short CTA that continues the scene by asking for a route-specific choice, answer, admission or challenge.",
+    "Require one memorable profile-specific identity anchor. Reject adjective piles, generic archetype labels, borrowed creator worlds, and bios whose opening could fit many profiles.",
     "Keep only a few mutually reinforcing source details. Physical details may stay when they actively create the joke, contrast or power shift; remove inventories and decorative facts.",
     "Reject generic copy that could fit many profiles, even if it is fluent. Reject copy that borrows an approved example's content or cadence instead of transferring its quality principles.",
     "Remove forbidden-content statements, empty mystery, AI cliches and repeated trans reveal or domination formulas.",
     "Use confirmed adult niches without contradicting boundaries. Never infer an unconfirmed extreme fetish.",
+    "Reject invented operational promises, including reply guarantees, custom work, priority access, free content, schedules, streams, posting cadence, prices, discounts, tiers, all-access, or external products. A scene-specific invitation to DM is allowed but must not promise a response.",
     "Keep every final bio suggestive but non-graphic so it is suitable for a public profile.",
     "Set qualityWarnings to an empty array only after every route satisfies every requirement.",
   ].join("\n");
@@ -409,6 +418,12 @@ function countEmojis(text: string) {
 
 function mentionsPublicBoundary(text: string) {
   return /\b(i (do not|don't|wont|won't) do|no (content|anal|bdsm|piss|outdoor nudity|other people)|nothing with other people)\b/i.test(
+    text,
+  );
+}
+
+function hasUnverifiedOperationalPromise(text: string) {
+  return /(i (always |personally )?(reply|respond)|all (my )?dms|dm priority|priority dms?|custom (requests?|content|videos?)|free (content|pics|videos|messages)|daily (posts?|updates?)|stream(s|ing)? (every|on|at)|schedule|subscribe for|first month|% off|discount|tier(s)?|all (videos|pics|content) (are |is )?free|no ppv|i('ll| will) message)/i.test(
     text,
   );
 }

@@ -114,10 +114,14 @@ export const brandDraftSchema = z.object({
 
 export const qualityScoresSchema = z.object({
   naturalVoice: z.number().min(8).max(10),
+  identityClarity: z.number().min(8).max(10),
   curiosity: z.number().min(8).max(10),
   sexualTension: z.number().min(8).max(10),
   sceneAndStory: z.number().min(8).max(10),
   profileSpecificity: z.number().min(8).max(10),
+  readerParticipation: z.number().min(8).max(10),
+  promiseHonesty: z.number().min(8).max(10),
+  routeDistinctiveness: z.number().min(8).max(10),
   compression: z.number().min(8).max(10),
   focus: z.number().min(8).max(10),
   cta: z.number().min(8).max(10),

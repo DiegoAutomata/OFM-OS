@@ -41,8 +41,44 @@ export const coreBrandRules: MemoryRule[] = [
   {
     id: "natural-self-description",
     scope: "global",
-    title: "Implicit personality",
-    rule: "Never make the creator announce an archetype or describe herself with stacked adjectives. Demonstrate personality through what she says, notices and does.",
+    title: "Identity, not label dumping",
+    rule: "A short, memorable identity anchor is allowed when the profile supports it. Never stack generic archetype labels or adjectives. Demonstrate the rest of the personality through what she says, notices and does.",
+  },
+  {
+    id: "identity-before-inventory",
+    scope: "global",
+    title: "One ownable identity anchor",
+    rule: "Give each route one profile-specific identity anchor before adding texture: a real role, visual signature, recurring setting, relationship energy, skill, or supported niche. The anchor must make this creator easier to remember without borrowing another creator's character world.",
+  },
+  {
+    id: "specific-reader-role",
+    scope: "global",
+    title: "Reader role, not generic engagement",
+    rule: "The reader should have a specific role, choice, challenge, consequence or invitation inside the route. A bare 'DM me' is insufficient unless the surrounding sentence tells the reader what to say, choose, admit or do in this creator's world.",
+  },
+  {
+    id: "offer-truthfulness",
+    scope: "global",
+    title: "Do not invent operations",
+    rule: "Only promise replies, custom work, priority access, free content, schedules, streams, daily posting, pricing, discounts, tiers, all-access, or external products when the current intake explicitly confirms that operational capability. In ordinary bio generation, use an in-character invitation to message without promising a response or service level.",
+  },
+  {
+    id: "bio-versus-offer-system",
+    scope: "global",
+    title: "Keep the bio focused",
+    rule: "The bio sells identity, feeling and the first interaction. Content catalogs, tier menus, prices, release calendars, FAQ details and fulfillment policies belong in other product surfaces, not in a 55-90 word discovery bio.",
+  },
+  {
+    id: "route-world-coherence",
+    scope: "global",
+    title: "One coherent world per route",
+    rule: "A strong route makes its identity anchor, scene, tension, reader role and CTA feel like one small world. Do not combine unrelated assets, niches or tones just because they all appear in the intake.",
+  },
+  {
+    id: "route-diversity-by-engine",
+    scope: "global",
+    title: "Distinct emotional engines",
+    rule: "The three routes must differ in emotional engine and reader role, not merely swap outfits or synonyms. For example, challenge, intimacy, playful trouble, competence, comfort, or rivalry may be distinct only when independently supported by the intake.",
   },
   {
     id: "short-in-character-cta",
@@ -120,7 +156,7 @@ export const coreBrandRules: MemoryRule[] = [
     id: "fansly-market-reference",
     scope: "market",
     title: "Fansly leaderboard as market reference",
-    rule: "Use top profiles only for archetypes, niche clarity, and language signals. Do not copy hard-selling bios, content menus, prices, PPV, custom requests, ratings, or bundle language into v1 outputs.",
+    rule: "Use the manually reviewed leaderboard only for structural patterns: immediate identity clarity, coherent brand worlds, specific reader participation, honest offer boundaries, clear tier logic and catalog organization. For v1 bios, never copy profiles' names, characters, content menus, prices, PPV, customs, ratings, discounts, schedules, or bundle language.",
   },
 ];
 
