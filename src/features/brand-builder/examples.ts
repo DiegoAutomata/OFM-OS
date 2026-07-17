@@ -293,6 +293,10 @@ export const approvedStylePrinciples = [
   "Create a compact emotional arc: recognizable identity, relatable moment, tension or reversal, then an in-scene CTA.",
   "Make the reader a participant by addressing them directly and giving them a choice, challenge or imagined consequence.",
   "Use a few profile-specific details as evidence inside the scene; never summarize the intake or copy an example's details.",
+  "Every bio needs unmistakable but non-graphic sexual subtext. A charming everyday scene is not enough unless it makes the reader imagine the creator erotically.",
+  "Activate at least one confirmed niche, sensual asset, body signal, or power dynamic as part of the fantasy instead of hiding all adult appeal behind lifestyle storytelling.",
+  "For soft, playful, teasing, affectionate, needy, bratty, or flirty personas, use 1-3 character-appropriate emojis as emotional punctuation; restrained personas may use fewer.",
+  "The CTA should expose desire: ask what the reader would watch, choose, lose control over, obey, handle, or admit within the route's fantasy—not merely what they like in ordinary life.",
   "Prefer conversational English and character-appropriate texting shorthand over polished marketing copy, without forcing the same slang on every creator.",
   "Leave the reader with a clear feeling or fantasy in 55-90 words; every sentence must earn its space.",
 ];

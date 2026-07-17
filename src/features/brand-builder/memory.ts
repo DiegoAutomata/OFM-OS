@@ -12,7 +12,25 @@ export const coreBrandRules: MemoryRule[] = [
     id: "discovery-first",
     scope: "global",
     title: "Discovery-first bio",
-    rule: "For new models, create familiarity, aura, curiosity, and a first fantasy. Do not write aggressive conversion copy.",
+    rule: "For new models, create familiarity, aura, curiosity, and a first erotic fantasy. Avoid aggressive hard selling, but never remove the sensual reason an adult prospect would want to see more.",
+  },
+  {
+    id: "mandatory-sensual-subtext",
+    scope: "global",
+    title: "Sensual subtext is mandatory",
+    rule: "Every public bio must contain clear, non-graphic sexual double meaning. A lifestyle scene only qualifies when it makes the reader imagine looking, losing focus, wanting, obeying, teasing, undressing, or another profile-supported erotic consequence.",
+  },
+  {
+    id: "confirmed-desire-anchor",
+    scope: "global",
+    title: "Activate confirmed adult appeal",
+    rule: "Use at least one confirmed niche, sensual asset, body signal, outfit, or power dynamic as an active desire trigger in every route. Do not publish a fetish checklist, but do not hide every adult signal behind hobbies either.",
+  },
+  {
+    id: "conversion-through-fantasy",
+    scope: "global",
+    title: "Convert through imagined access",
+    rule: "The reader is an adult prospect deciding whether he wants more access to this creator. Make him imagine a private erotic moment and end with a question, choice, challenge, or admission that reveals what he wants without inventing prices, services, or reply promises.",
   },
   {
     id: "one-fantasy-per-bio",
@@ -150,7 +168,7 @@ export const coreBrandRules: MemoryRule[] = [
     id: "emoji-by-character",
     scope: "archetype",
     title: "Emoji usage by archetype",
-    rule: "Use 1-3 subtle emojis for young, playful, sweet, soft, gamer, yoga, girl-next-door, or spoiled characters. Use fewer or none for mature, strict, elegant, office, sadistic, or serious archetypes.",
+    rule: "Use 1-3 subtle emojis for playful, sweet, soft, teasing, affectionate, needy, flirty, bratty, gamer, girl-next-door, or spoiled personas. These personality signals outweigh age alone. Use fewer or none only when the profile is consistently strict, elegant, minimalist, cold, or serious.",
   },
   {
     id: "fansly-market-reference",
@@ -174,7 +192,7 @@ export function selectRelevantRules(profile: ModelProfile) {
 
   const isTrans = /\btrans\b/.test(profile.identityGender.toLowerCase());
   const isEmojiFriendly =
-    /sweet|soft|playful|gamer|yoga|girl.next.door|spoiled|princess|cute|brat|college/.test(
+    /sweet|soft|playful|gamer|yoga|girl.next.door|spoiled|princess|cute|brat|college|teas|flirt|affection|needy|mommy/.test(
       text,
     );
 

@@ -84,6 +84,7 @@ export const generateBrandingSchema = z.object({
 
 export const benchmarkRequestSchema = z.object({
   profile: verifiedModelProfileSchema,
+  model: z.enum(["openai/gpt-5.5", "openai/gpt-5.6-terra"]).optional(),
 });
 
 export const strategyRouteSchema = z.object({
@@ -92,6 +93,10 @@ export const strategyRouteSchema = z.object({
   centralFantasy: z.string().min(20),
   relatableScene: z.string().min(20),
   coreTension: z.string().min(20),
+  sensualHook: z.string().min(20),
+  desireReaction: z.string().min(20),
+  confirmedAdultSignal: z.string().min(3),
+  emojiDirection: z.string().min(5),
   selectedDetails: z.array(z.string().min(2)).min(2).max(4),
   ignoredTexture: z.array(z.string()),
   ctaMechanic: z.string().min(10),

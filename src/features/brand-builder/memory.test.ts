@@ -23,5 +23,8 @@ describe("profile-specific brand rules", () => {
     expect(ids).toContain("offer-truthfulness");
     expect(ids).toContain("route-world-coherence");
     expect(ids).toContain("route-diversity-by-engine");
+    expect(ids).toContain("mandatory-sensual-subtext");
+    expect(ids).toContain("confirmed-desire-anchor");
+    expect(ids).toContain("conversion-through-fantasy");
   });
 });

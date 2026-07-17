@@ -1,5 +1,5 @@
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-import { generateObject } from "ai";
+import { generateObject, generateText } from "ai";
 import { franc } from "franc-min";
 import { z } from "zod";
 import { readEnv } from "@/lib/env";
@@ -12,13 +12,22 @@ import {
   brandStrategySchema,
   reviewedPlaybookSchema,
   type BrandPlaybook,
+  type BrandDraft,
+  type BrandStrategy,
   type ModelIntake,
   type ModelProfile,
   type ReviewedPlaybook,
 } from "./schemas";
 import { selectApprovedMemory } from "./storage";
 
-export const brandBuilderModel = "openai/gpt-5.5" as const;
+export const supportedBrandBuilderModels = [
+  "openai/gpt-5.5",
+  "openai/gpt-5.6-terra",
+] as const;
+
+export type BrandBuilderModel = (typeof supportedBrandBuilderModels)[number];
+
+export const brandBuilderModel: BrandBuilderModel = "openai/gpt-5.6-terra";
 
 export interface GenerationMetrics {
   attempts: number;
@@ -42,6 +51,17 @@ interface StageResult<T> {
   metrics: GenerationMetrics;
 }
 
+interface GenerationBudget {
+  callsUsed: number;
+  readonly maxCalls: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  costUsd: number | null;
+}
+
+type StageValidator<T> = (object: T) => string[];
+
 export async function generateBrandPlaybook(intake: ModelIntake) {
   const apiKey = readEnv("OPENROUTER_API_KEY");
   if (!apiKey) {
@@ -58,31 +78,49 @@ export async function generateBrandPlaybook(intake: ModelIntake) {
     };
   }
 
-  return generateWithGpt55(intake.profile, apiKey);
+  return generateWithModel(intake.profile, apiKey, brandBuilderModel);
 }
 
-export async function generateQualityBenchmark(profile: ModelProfile) {
+export async function generateQualityBenchmark(
+  profile: ModelProfile,
+  model: BrandBuilderModel = brandBuilderModel,
+) {
   const apiKey = readEnv("OPENROUTER_API_KEY");
   if (!apiKey) throw new Error("OPENROUTER_API_KEY is required for a real quality run.");
-  return generateWithGpt55(profile, apiKey);
+  return generateWithModel(profile, apiKey, model);
 }
 
-async function generateWithGpt55(profile: ModelProfile, apiKey: string) {
-  const relevantRules = selectRelevantRules(profile);
+async function generateWithModel(
+  profile: ModelProfile,
+  apiKey: string,
+  model: BrandBuilderModel,
+) {
+  const budget: GenerationBudget = {
+    callsUsed: 0,
+    maxCalls: 4,
+    inputTokens: 0,
+    outputTokens: 0,
+    totalTokens: 0,
+    costUsd: 0,
+  };
+  try {
+  const relevantRules = selectRelevantRules(profile).map(({ id, rule }) => ({ id, rule }));
   const qualityAnchors = selectCanonicalExamples(profile, 2).map((example) => ({
     model: example.input.name,
-    input: example.input,
     approvedBio: example.bio,
     transferableLesson: example.lesson,
     usagePolicy:
-      "Calibrate quality from the lesson. Do not borrow this example's facts, setting, kink, wardrobe, wording, CTA or sentence rhythm.",
+      "Style calibration only. The current profile is the sole source of facts. Do not borrow this example's model, setting, kink, wardrobe, wording, CTA or sentence rhythm.",
   }));
   const approvedMemory = await selectApprovedMemory(profile, 4);
 
   const strategy = await runStage({
     apiKey,
+    model,
+    budget,
     name: "strategy",
     schema: brandStrategySchema,
+    validateObject: (object) => validateStrategyGrounding(profile, object),
     temperature: 0.35,
     maxOutputTokens: 3_000,
     system: strategySystemPrompt(),
@@ -101,10 +139,13 @@ async function generateWithGpt55(profile: ModelProfile, apiKey: string) {
 
   const writing = await runStage({
     apiKey,
+    model,
+    budget,
     name: "writing",
     schema: brandDraftSchema,
+    validateObject: (object) => validateDraftGrounding(profile, object),
     temperature: 0.8,
-    maxOutputTokens: 3_000,
+    maxOutputTokens: 1_600,
     system: writingSystemPrompt(),
     prompt: JSON.stringify(
       {
@@ -122,10 +163,13 @@ async function generateWithGpt55(profile: ModelProfile, apiKey: string) {
 
   const review = await runStage({
     apiKey,
+    model,
+    budget,
     name: "review",
     schema: reviewedPlaybookSchema,
+    validateObject: (object) => validateReviewedGrounding(profile, object),
     temperature: 0.25,
-    maxOutputTokens: 5_000,
+    maxOutputTokens: 3_500,
     system: reviewSystemPrompt(),
     prompt: JSON.stringify(
       {
@@ -142,43 +186,102 @@ async function generateWithGpt55(profile: ModelProfile, apiKey: string) {
     ),
   });
 
-  const output = assemblePlaybook(profile.name, review.object);
-  validateFinalPlaybook(profile, output);
+  let reviewed = review;
+  let output = assemblePlaybook(profile.name, reviewed.object);
+  const stages: Array<["strategy" | "writing" | "review", GenerationMetrics]> = [
+    ["strategy", strategy.metrics],
+    ["writing", writing.metrics],
+    ["review", review.metrics],
+  ];
+
+  try {
+    validateFinalPlaybook(profile, output);
+  } catch (error) {
+    const validationFailure =
+      error instanceof Error ? error.message : "unknown validation failure";
+    reviewed = await runStage({
+      apiKey,
+      model,
+      budget,
+      name: "review",
+      schema: reviewedPlaybookSchema,
+      validateObject: (object) => validateReviewedGrounding(profile, object),
+      temperature: 0.1,
+      maxOutputTokens: 3_500,
+      system: `${reviewSystemPrompt()}\nThis is the single allowed final repair. Fix only the deterministic failures while preserving the current profile and route worlds. Return valid JSON only.`,
+      prompt: JSON.stringify(
+        {
+          currentProfile: profile,
+          strategy: strategy.object,
+          drafts: writing.object,
+          priorReview: reviewed.object,
+          deterministicValidationFailure: validationFailure,
+        },
+        null,
+        2,
+      ),
+    });
+    stages.push(["review", reviewed.metrics]);
+    output = assemblePlaybook(profile.name, reviewed.object);
+    validateFinalPlaybook(profile, output);
+  }
+
   return {
     output,
-    provider: brandBuilderModel,
-    metrics: aggregateMetrics([
-      ["strategy", strategy.metrics],
-      ["writing", writing.metrics],
-      ["review", review.metrics],
-    ]),
+    provider: model,
+    metrics: aggregateMetrics(stages),
     warnings: [],
   };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown generation failure";
+    throw new Error(`${message} ${formatBudgetUsage(budget)}`, { cause: error });
+  }
 }
 
 async function runStage<T>({
   apiKey,
+  model,
+  budget,
   name,
   schema,
+  validateObject,
   system,
   prompt,
   temperature,
   maxOutputTokens,
 }: {
   apiKey: string;
+  model: BrandBuilderModel;
+  budget: GenerationBudget;
   name: "strategy" | "writing" | "review";
   schema: z.ZodType<T>;
+  validateObject: StageValidator<T>;
   system: string;
   prompt: string;
   temperature: number;
   maxOutputTokens: number;
 }): Promise<StageResult<T>> {
   const openrouter = createOpenRouter({ apiKey });
+  if (model === "openai/gpt-5.5") {
+    return runTextJsonStage({
+      model: openrouter(model),
+      budget,
+      name,
+      schema,
+      validateObject,
+      system,
+      prompt,
+      temperature,
+      maxOutputTokens,
+    });
+  }
+
   const startedAt = performance.now();
+  consumeModelCall(budget, name);
   const result = await (async () => {
     try {
       return await generateObject({
-        model: openrouter(brandBuilderModel),
+        model: openrouter(model),
         schema,
         schemaName: `${name}_brand_builder_output`,
         schemaDescription: "Return only the JSON object that satisfies this schema.",
@@ -192,11 +295,18 @@ async function runStage<T>({
       });
     } catch (error) {
       throw new Error(
-        `GPT-5.5 ${name} stage failed: ${error instanceof Error ? error.message : "unknown provider error"}`,
+        `${model} ${name} stage failed: ${error instanceof Error ? error.message : "unknown provider error"}`,
       );
     }
   })();
   const responseTimeMs = performance.now() - startedAt;
+  recordBudgetUsage(budget, result);
+  const semanticFailures = validateObject(result.object);
+  if (semanticFailures.length > 0) {
+    throw new Error(
+      `${model} ${name} stage failed semantic grounding: ${semanticFailures.join("; ")}.`,
+    );
+  }
   return {
     object: result.object,
     metrics: {
@@ -217,6 +327,358 @@ async function runStage<T>({
         },
       ],
     },
+  };
+}
+
+async function runTextJsonStage<T>({
+  model,
+  budget,
+  name,
+  schema,
+  validateObject,
+  system,
+  prompt,
+  temperature,
+  maxOutputTokens,
+}: {
+  model: Parameters<typeof generateText>[0]["model"];
+  budget: GenerationBudget;
+  name: "strategy" | "writing" | "review";
+  schema: z.ZodType<T>;
+  validateObject: StageValidator<T>;
+  system: string;
+  prompt: string;
+  temperature: number;
+  maxOutputTokens: number;
+}): Promise<StageResult<T>> {
+  const jsonSchema = JSON.stringify(z.toJSONSchema(schema));
+  const attempts: GenerationMetrics[] = [];
+  const firstStartedAt = performance.now();
+  consumeModelCall(budget, name);
+  const first = await generateText({
+    model,
+    system: `${system}\nThe required JSON Schema is:\n${jsonSchema}`,
+    prompt,
+    temperature,
+    maxOutputTokens,
+    maxRetries: 0,
+  });
+  attempts.push(metricsFromCall(name, first, performance.now() - firstStartedAt, budget));
+
+  const firstParsed = parseTextStageObject(first.text, schema, validateObject);
+  if (firstParsed.success) {
+    return { object: firstParsed.data, metrics: combineStageAttempts(name, attempts) };
+  }
+
+  const repairStartedAt = performance.now();
+  consumeModelCall(budget, name);
+  const repair = await generateText({
+    model,
+    system: [
+      system,
+      "This is the single allowed repair for the same task.",
+      "The original task and current profile below remain authoritative.",
+      "Repair both structure and the reported validation failure without changing subject.",
+      "Return only one valid JSON object matching the supplied schema.",
+      "Do not add markdown, commentary, or fields outside the schema.",
+      "Every bio field must contain 55-90 whitespace-separated words.",
+      `Required JSON Schema:\n${jsonSchema}`,
+    ].join("\n"),
+    prompt: JSON.stringify(
+      {
+        originalTaskInput: prompt,
+        invalidOutput: first.text,
+        validationFailure: firstParsed.error,
+      },
+      null,
+      2,
+    ),
+    temperature: 0,
+    maxOutputTokens,
+    maxRetries: 0,
+  });
+  attempts.push(metricsFromCall(name, repair, performance.now() - repairStartedAt, budget));
+
+  const repaired = parseTextStageObject(repair.text, schema, validateObject);
+  if (repaired.success) {
+    return { object: repaired.data, metrics: combineStageAttempts(name, attempts) };
+  }
+  throw new Error(`${name} repair failed: ${repaired.error}`);
+}
+
+function parseTextStageObject<T>(
+  text: string,
+  schema: z.ZodType<T>,
+  validateObject: StageValidator<T>,
+) {
+  const candidate = extractJsonObject(text);
+  if (!candidate) return { success: false as const, error: "No valid JSON object was found." };
+  try {
+    const result = schema.safeParse(JSON.parse(candidate));
+    if (result.success) {
+      const semanticFailures = validateObject(result.data);
+      if (semanticFailures.length === 0) {
+        return { success: true as const, data: result.data };
+      }
+      return {
+        success: false as const,
+        error: `Semantic grounding failed: ${semanticFailures.join("; ")}`,
+      };
+    }
+    return {
+      success: false as const,
+      error: result.error.issues
+        .map((issue) => `${issue.path.join(".") || "root"}: ${issue.message}`)
+        .join("; "),
+    };
+  } catch {
+    return { success: false as const, error: "The extracted object is not valid JSON." };
+  }
+}
+
+function consumeModelCall(
+  budget: GenerationBudget,
+  stage: "strategy" | "writing" | "review",
+) {
+  if (budget.callsUsed >= budget.maxCalls) {
+    throw new Error(
+      `Brand Builder stopped before ${stage}: model-call budget of ${budget.maxCalls} was exhausted.`,
+    );
+  }
+  budget.callsUsed += 1;
+}
+
+function validateStrategyGrounding(profile: ModelProfile, strategy: BrandStrategy) {
+  const failures: string[] = [];
+  const profileCorpus = profileGroundingTokens(profile);
+  const adultCorpus = adultSignalTokens(profile);
+
+  for (const route of strategy.routes) {
+    const routeLabel = route.routeId;
+    const routeText = [
+      route.workingTitle,
+      route.centralFantasy,
+      route.relatableScene,
+      route.coreTension,
+      route.sensualHook,
+      route.desireReaction,
+      route.confirmedAdultSignal,
+      route.selectedDetails.join(" "),
+      route.ctaMechanic,
+      route.voiceDirection,
+    ].join(" ");
+    if (tokenOverlap(routeText, profileCorpus) < 2) {
+      failures.push(`${routeLabel} is not grounded in the current profile`);
+    }
+    if (
+      /\b(all characters|21\+|verified adult|consenting adults?)\b/i.test(
+        route.confirmedAdultSignal,
+      ) ||
+      tokenOverlap(route.confirmedAdultSignal, adultCorpus) < 1
+    ) {
+      failures.push(`${routeLabel} uses an unsupported confirmedAdultSignal`);
+    }
+    const unsupportedDetails = route.selectedDetails.filter(
+      (detail) => tokenOverlap(detail, profileCorpus) < 1,
+    );
+    if (unsupportedDetails.length > 0) {
+      failures.push(
+        `${routeLabel} invents selected details: ${unsupportedDetails.join(", ")}`,
+      );
+    }
+  }
+  return failures;
+}
+
+function validateDraftGrounding(profile: ModelProfile, draft: BrandDraft) {
+  const failures: string[] = [];
+  const profileCorpus = profileGroundingTokens(profile);
+  for (const route of draft.routes) {
+    if (tokenOverlap(`${route.title} ${route.bio}`, profileCorpus) < 2) {
+      failures.push(`${route.routeId} is not grounded in the current profile`);
+    }
+    failures.push(...validateBioCore(profile, route.routeId, route.bio));
+  }
+  return failures;
+}
+
+function validateReviewedGrounding(profile: ModelProfile, reviewed: ReviewedPlaybook) {
+  const failures: string[] = [];
+  const profileCorpus = profileGroundingTokens(profile);
+  for (const route of reviewed.routes) {
+    const routeText = [
+      route.title,
+      route.archetype,
+      route.coreTension,
+      route.brandAngle,
+      route.discoveryBio,
+      route.whyItFits,
+    ].join(" ");
+    if (tokenOverlap(routeText, profileCorpus) < 3) {
+      failures.push(`${route.routeId} is not grounded in the current profile`);
+    }
+  }
+  return failures;
+}
+
+function validateBioCore(profile: ModelProfile, routeId: string, bio: string) {
+  const failures: string[] = [];
+  if (!/\b(i|im|i'm|my|me)\b/i.test(bio)) {
+    failures.push(`${routeId} is not written in first person`);
+  }
+  if (!hasClosingConversationCta(bio)) {
+    failures.push(`${routeId} has no closing conversation CTA`);
+  }
+  if (!hasSensualConversionHook(bio)) {
+    failures.push(`${routeId} has no clear sensual conversion hook`);
+  }
+  if (shouldUseEmoji(profile) && countEmojis(bio) === 0) {
+    failures.push(`${routeId} needs a character-appropriate emoji`);
+  }
+  return failures;
+}
+
+function profileGroundingTokens(profile: ModelProfile) {
+  return meaningfulTokens(
+    [
+      profile.primaryBodyType,
+      profile.secondaryBodyType,
+      profile.visualTraits,
+      profile.styleTags.join(" "),
+      profile.realPersonality,
+      profile.comfortablePersonalityOnline.join(" "),
+      profile.availableAssets,
+      profile.hobbies,
+      profile.normalLifeDetails,
+      profile.additionalPhysicalTraits,
+      profile.confirmedFetishesOrNiches,
+    ].join(" "),
+  );
+}
+
+function adultSignalTokens(profile: ModelProfile) {
+  return meaningfulTokens(
+    [
+      profile.primaryBodyType,
+      profile.secondaryBodyType,
+      profile.visualTraits,
+      profile.comfortablePersonalityOnline.join(" "),
+      profile.availableAssets,
+      profile.additionalPhysicalTraits,
+      profile.confirmedFetishesOrNiches,
+    ].join(" "),
+  );
+}
+
+function tokenOverlap(text: string, corpus: Set<string>) {
+  return [...meaningfulTokens(text)].filter((token) => corpus.has(token)).length;
+}
+
+function meaningfulTokens(text: string) {
+  const stopWords = new Set([
+    "about",
+    "adult",
+    "after",
+    "always",
+    "around",
+    "character",
+    "content",
+    "current",
+    "every",
+    "from",
+    "into",
+    "private",
+    "reader",
+    "route",
+    "should",
+    "their",
+    "there",
+    "these",
+    "thing",
+    "this",
+    "through",
+    "with",
+    "woman",
+  ]);
+  return new Set(
+    (text
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .match(/[a-z0-9]+/g) ?? [])
+      .filter((token) => token.length >= 4 && !stopWords.has(token))
+      .map((token) => token.slice(0, 5)),
+  );
+}
+
+function metricsFromCall(
+  name: "strategy" | "writing" | "review",
+  result: {
+    usage: { inputTokens?: number; outputTokens?: number; totalTokens?: number };
+    providerMetadata?: unknown;
+  },
+  responseTimeMs: number,
+  budget: GenerationBudget,
+): GenerationMetrics {
+  recordBudgetUsage(budget, result);
+  const inputTokens = result.usage.inputTokens ?? 0;
+  const outputTokens = result.usage.outputTokens ?? 0;
+  const totalTokens = result.usage.totalTokens ?? inputTokens + outputTokens;
+  const costUsd = readOpenRouterCost(result.providerMetadata);
+  return {
+    attempts: 1,
+    inputTokens,
+    outputTokens,
+    totalTokens,
+    costUsd,
+    responseTimeMs,
+    stages: [{ name, inputTokens, outputTokens, totalTokens, costUsd, responseTimeMs }],
+  };
+}
+
+function recordBudgetUsage(
+  budget: GenerationBudget,
+  result: {
+    usage: { inputTokens?: number; outputTokens?: number; totalTokens?: number };
+    providerMetadata?: unknown;
+  },
+) {
+  const inputTokens = result.usage.inputTokens ?? 0;
+  const outputTokens = result.usage.outputTokens ?? 0;
+  budget.inputTokens += inputTokens;
+  budget.outputTokens += outputTokens;
+  budget.totalTokens += result.usage.totalTokens ?? inputTokens + outputTokens;
+  const cost = readOpenRouterCost(result.providerMetadata);
+  budget.costUsd =
+    budget.costUsd === null || cost === null ? null : budget.costUsd + cost;
+}
+
+function formatBudgetUsage(budget: GenerationBudget) {
+  const cost =
+    budget.costUsd === null ? "cost unavailable" : `$${budget.costUsd.toFixed(6)}`;
+  return `Recorded usage before stop: ${budget.callsUsed}/${budget.maxCalls} calls, ${budget.totalTokens} tokens, ${cost}.`;
+}
+
+function combineStageAttempts(
+  name: "strategy" | "writing" | "review",
+  attempts: GenerationMetrics[],
+): GenerationMetrics {
+  const costs = attempts.map((attempt) => attempt.costUsd);
+  const inputTokens = attempts.reduce((sum, attempt) => sum + attempt.inputTokens, 0);
+  const outputTokens = attempts.reduce((sum, attempt) => sum + attempt.outputTokens, 0);
+  const totalTokens = attempts.reduce((sum, attempt) => sum + attempt.totalTokens, 0);
+  const costUsd = costs.every((cost) => cost !== null)
+    ? costs.reduce<number>((sum, cost) => sum + (cost ?? 0), 0)
+    : null;
+  const responseTimeMs = attempts.reduce((sum, attempt) => sum + attempt.responseTimeMs, 0);
+  return {
+    attempts: attempts.length,
+    inputTokens,
+    outputTokens,
+    totalTokens,
+    costUsd,
+    responseTimeMs,
+    stages: [{ name, inputTokens, outputTokens, totalTokens, costUsd, responseTimeMs }],
   };
 }
 
@@ -267,6 +729,12 @@ export function validateFinalPlaybook(profile: ModelProfile, output: BrandPlaybo
     if (!hasClosingConversationCta(bio)) {
       failures.push(`${route.routeId} has no closing conversation CTA`);
     }
+    if (!hasSensualConversionHook(bio)) {
+      failures.push(`${route.routeId} has no clear sensual conversion hook`);
+    }
+    if (shouldUseEmoji(profile) && countEmojis(bio) === 0) {
+      failures.push(`${route.routeId} needs a character-appropriate emoji`);
+    }
     if (countEmojis(bio) > 3) failures.push(`${route.routeId} uses more than 3 emojis`);
     if (mentionsPublicBoundary(bio)) {
       failures.push(`${route.routeId} announces a private content boundary`);
@@ -301,7 +769,7 @@ export function validateFinalPlaybook(profile: ModelProfile, output: BrandPlaybo
   }
 
   if (failures.length > 0) {
-    throw new Error(`GPT-5.5 quality validation failed: ${failures.join("; ")}.`);
+    throw new Error(`Brand Builder quality validation failed: ${failures.join("; ")}.`);
   }
   return output;
 }
@@ -316,11 +784,14 @@ function strategySystemPrompt() {
     "You are the senior brand strategist for early-stage adult creators.",
     "Return only valid JSON. No markdown, no commentary, no prose before or after the JSON object.",
     "Plan exactly three genuinely different discovery-first routes for the supplied verified adult profile.",
-    "Each route needs one coherent fantasy engine: a recognizable profile-specific identity anchor, one relatable scene, one emotional or sexual tension, and a specific reader role.",
+    "Each route needs one coherent erotic fantasy engine: a recognizable profile-specific identity anchor, one relatable scene, mandatory non-graphic sexual tension, and a specific reader role.",
+    "The conversion goal is adult desire. The reader should finish the bio imagining the creator in a private sensual situation and wanting to see more, not merely wanting to discuss her hobby.",
+    "For every route, explicitly plan a sensualHook, the reader's desireReaction, one confirmedAdultSignal drawn from niches/body/assets/persona, and an emojiDirection. These must be visible in the eventual bio, not hidden in strategy metadata.",
+    "An ordinary-life detail is only a setup. Turn it into double meaning using a confirmed body feature, outfit, niche, relationship dynamic, or power contrast. Reject routes whose payoff is only coffee, food, TV opinions, compliments, or friendly conversation.",
     "Select two to four mutually reinforcing profile anchors for each route. Name, age and identity do not count toward that budget. Closely related details may form one contrast or proof beat.",
     "Classify everything else as ignored texture. Do not force the intake into the bio.",
     "A brief identity anchor is allowed when it is genuinely supported (for example a real role, supported niche, or relationship energy). Do not label-dump; demonstrate the rest of the personality through behavior.",
-    "Plan a CTA that asks the reader to choose, admit, challenge, answer or imagine something specific to this route. Do not settle for a bare 'DM me'.",
+    "Plan a CTA that makes the reader reveal an erotic preference, choice, weakness, fantasy, or imagined reaction specific to this route. Do not settle for a bare 'DM me' or a neutral lifestyle question.",
     "The intake does not authorize operational promises. Do not plan claims about replies, custom work, priority, free content, schedules, streams, posting frequency, pricing, discounts, tiers, all-access or external products unless explicitly confirmed in the current profile.",
     "Forbidden content is an internal hard constraint and must never become public copy.",
     "This is non-graphic public profile copy. Do not describe explicit sex acts.",
@@ -334,13 +805,16 @@ function writingSystemPrompt() {
   return [
     "You are a specialist creator bio writer. Write exactly three English bios from the approved strategies.",
     "Return only valid JSON. No markdown, no commentary, no prose before or after the JSON object.",
-    "Every bio must contain 55-90 words, use first person, include no more than three character-appropriate emojis, and end with a short in-character invitation to DM or message.",
+    "Every bio must contain 55-90 words, use first person, and end with a short in-character invitation to DM or message.",
+    "Every route must contain unmistakable but non-graphic sexual double meaning. Use at least one profile-confirmed niche, sensual asset, body signal, outfit, or power dynamic to make the reader imagine seeing more of her.",
+    "A cozy or everyday scene is only the setup, never the payoff. Escalate it into looking, temptation, loss of focus, self-control, teasing, obedience, body worship, or another confirmed erotic reaction.",
+    "When the strategy marks the persona as playful, soft, teasing, affectionate, needy, flirty, bratty, or spoiled, use 1-3 fitting emojis. Emojis are emotional punctuation, not decoration. For consistently serious or restrained personas, 0-1 may fit.",
     "Write a compact micro-story, not a static description: establish who she is, put the reader into a believable moment, escalate or reverse the tension, then make the CTA complete that moment.",
     "Open with one memorable identity anchor that is specific to this profile. A short supported label is fine; an adjective pile or copied creator persona is not.",
     "Sound like a real creator texting: casual, imperfect and immediate. Use im/u/dont/lol or similar shorthand only when it fits this specific creator; do not turn it into a mandatory house voice.",
     "Use selected traits, body details, clothes, hobbies, niches or assets only as active evidence inside the scene. Never stack them into an inventory.",
     "A distinctive visible or physical detail is useful when it causes a reaction, joke, contrast or power shift; otherwise omit it.",
-    "Address the reader directly and make them imagine a specific choice, challenge, consequence or role. The final invite must tell them what to say, choose, admit or do in this exact scene—not merely 'DM me'.",
+    "Address the reader directly and make them imagine a specific erotic choice, challenge, consequence or role. The final invite must reveal what tempts them, what they would watch, where they lose control, which side of her they want, or another route-specific desire—not merely 'DM me'.",
     "Avoid agency language, poetic mystery, third-person labels, generic selling and AI phrases such as 'a little dangerous', 'by day/by night', or 'the girl your friends warned you about'.",
     "Do not state content restrictions. Do not copy an example's sentence, CTA, setting, wardrobe, fetish, detail sequence or cadence.",
     "Never invent operational claims: no reply guarantees, custom requests, priority, free content, schedules, streams, daily posting, pricing, discounts, tiers, all-access, external products or catalog promises unless the profile itself explicitly confirms them.",
@@ -354,6 +828,9 @@ function reviewSystemPrompt() {
     "You are the final editor and quality gate. Return a complete three-route Brand Builder playbook in English.",
     "Return only valid JSON. No markdown, no commentary, no prose before or after the JSON object.",
     "Independently score every route for natural voice, identity clarity, curiosity, sexual tension, scene and story, profile specificity, reader participation, promise honesty, route distinctiveness, compression, focus, CTA and boundaries.",
+    "Sexual tension below 8 includes any bio that is merely charming, cozy, funny, or conversational. The bio must contain a visible confirmed adult signal plus double meaning that makes the reader imagine seeing or experiencing more of the creator.",
+    "Reject neutral CTAs about food, music, TV opinions, compliments, or everyday preferences. The CTA must expose an erotic preference, weakness, fantasy, choice, or reaction while remaining non-graphic.",
+    "Enforce the strategy's emojiDirection. Soft, playful, teasing, affectionate, needy, flirty, bratty, or spoiled personas normally need 1-3 fitting emojis; do not return three emoji-free bios for such a profile.",
     "If any dimension would score below 8, rewrite that route now and score the rewritten version only.",
     "All three routes must be publishable, distinct and 55-90 words. Do not merely choose one good route and leave two weaker routes.",
     "The creator must speak in first person. Keep one central scene, make the reader a participant, and finish with a short CTA that continues the scene by asking for a route-specific choice, answer, admission or challenge.",
@@ -381,7 +858,7 @@ function aggregateMetrics(
   }));
   const costs = stageMetrics.map((stage) => stage.costUsd);
   return {
-    attempts: stages.length,
+    attempts: stages.reduce((sum, [, metrics]) => sum + metrics.attempts, 0),
     inputTokens: stageMetrics.reduce((sum, stage) => sum + stage.inputTokens, 0),
     outputTokens: stageMetrics.reduce((sum, stage) => sum + stage.outputTokens, 0),
     totalTokens: stageMetrics.reduce((sum, stage) => sum + stage.totalTokens, 0),
@@ -414,6 +891,37 @@ function readOpenRouterCost(metadata: unknown): number | null {
 
 function countEmojis(text: string) {
   return text.match(/\p{Extended_Pictographic}/gu)?.length ?? 0;
+}
+
+function shouldUseEmoji(profile: ModelProfile) {
+  const text = [
+    profile.styleTags.join(" "),
+    profile.realPersonality,
+    profile.comfortablePersonalityOnline.join(" "),
+  ]
+    .join(" ")
+    .toLowerCase();
+  return /sweet|soft|playful|spoiled|princess|cute|brat|teas|flirt|affection|needy|mommy|girl.next.door|gamer/.test(
+    text,
+  );
+}
+
+function hasSensualConversionHook(text: string) {
+  const hasReader = /\b(u|you|your|boys?|men|guys?)\b/i.test(text);
+  const hasConfirmedStyleAdultAnchor =
+    /\b(naught\w*|teas\w*|innocent|lingerie|lace|panties|stockings?|thighs?|boobs?|breasts?|curves?|ass|hips?|mommy|daddy|dominat\w*|submiss\w*|brat\w*|body worship|socks?|heels?|bikini|toys?|dick|pussy|leggings|sweat|good girl|bad girl|use me|spoil\w*)\b/i.test(
+      text,
+    );
+  const hasEroticReaction =
+    /\b(want\w*|watch\w*|star\w*|look\w*|focus|self.control|control|behav\w*|obey\w*|beg\w*|weak|distract\w*|tempt\w*|handle|break|nervous|pretend\w*|hid\w*|need\w*|caught|lose|lost|attention|curious)\b/i.test(
+      text,
+    );
+  const hasGazeTension =
+    /\b(look\w*|star\w*|watch\w*|eyes?|focus|attention)\b/i.test(text) &&
+    /\b(nervous|weak|distract\w*|innocent|pretend\w*|hid\w*|lose|lost|control|caught|curious)\b/i.test(
+      text,
+    );
+  return hasReader && ((hasConfirmedStyleAdultAnchor && hasEroticReaction) || hasGazeTension);
 }
 
 function mentionsPublicBoundary(text: string) {
