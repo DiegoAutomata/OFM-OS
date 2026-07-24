@@ -61,10 +61,42 @@ OFMS_OPERATOR_CODE=admin pnpm benchmark:brand \
 The model identifier is fixed server-side to `openai/gpt-5.5`; environment variables
 cannot switch production to a different model.
 
+## Quality Calibration
+
+Approved input-to-bio pairs are stored as canonical quality anchors. At generation
+time, OFMS selects only the most relevant anchors and sends both their transferable
+lesson and an explicit no-copy policy to every pipeline stage. Anchors calibrate:
+
+- compact micro-story structure;
+- reader participation and emotional tension;
+- profile-specific detail selection;
+- character-appropriate texting voice;
+- an in-scene closing CTA.
+
+They are not templates. Settings, wardrobe, body details, niches, wording and cadence
+must come from the current profile rather than from an approved example.
+
+## Authorized Leaderboard Research
+
+OFMS includes an aggregate analyzer for leaderboard exports obtained with Fansly's
+written permission or supplied by an authorized client. It does not crawl Fansly and
+does not place usernames or raw bios in its reports.
+
+```bash
+pnpm analyze:leaderboard \
+  --input /absolute/path/to/authorized-leaderboard.json \
+  --json /absolute/path/to/leaderboard-report.json \
+  --markdown /absolute/path/to/leaderboard-report.md
+```
+
+The input contract and interpretation limits are documented in
+`docs/fansly-leaderboard-data-contract.md`.
+
 ## Product Rules
 
 - Generate exactly 3 routes.
 - Every route is English, discovery-first and 55-90 words.
+- Every route uses 2-4 mutually reinforcing profile anchors inside one scene.
 - Reference photos are stored only; they are not sent to the AI in v1.
 - Operator edits require field-level feedback reasons.
 - Corrections remain pending until an operator approves them in Settings.

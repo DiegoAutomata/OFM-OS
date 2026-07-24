@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "benchmark:brand": "node scripts/run-brand-benchmark.mjs"
+    "benchmark:brand": "node scripts/run-brand-benchmark.mjs",
+    "analyze:leaderboard": "node scripts/analyze-fansly-leaderboard.mjs"
   },
   "dependencies": {
     "@openrouter/ai-sdk-provider": "^2.9.1",

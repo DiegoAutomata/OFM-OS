@@ -84,6 +84,7 @@ export const generateBrandingSchema = z.object({
 
 export const benchmarkRequestSchema = z.object({
   profile: verifiedModelProfileSchema,
+  model: z.enum(["openai/gpt-5.5", "openai/gpt-5.6-terra"]).optional(),
 });
 
 export const strategyRouteSchema = z.object({
@@ -92,7 +93,11 @@ export const strategyRouteSchema = z.object({
   centralFantasy: z.string().min(20),
   relatableScene: z.string().min(20),
   coreTension: z.string().min(20),
-  selectedDetails: z.array(z.string().min(2)).min(1).max(2),
+  sensualHook: z.string().min(20),
+  desireReaction: z.string().min(20),
+  confirmedAdultSignal: z.string().min(3),
+  emojiDirection: z.string().min(5),
+  selectedDetails: z.array(z.string().min(2)).min(2).max(4),
   ignoredTexture: z.array(z.string()),
   ctaMechanic: z.string().min(10),
   voiceDirection: z.string().min(10),
@@ -114,8 +119,15 @@ export const brandDraftSchema = z.object({
 
 export const qualityScoresSchema = z.object({
   naturalVoice: z.number().min(8).max(10),
+  identityClarity: z.number().min(8).max(10),
   curiosity: z.number().min(8).max(10),
   sexualTension: z.number().min(8).max(10),
+  sceneAndStory: z.number().min(8).max(10),
+  profileSpecificity: z.number().min(8).max(10),
+  readerParticipation: z.number().min(8).max(10),
+  promiseHonesty: z.number().min(8).max(10),
+  routeDistinctiveness: z.number().min(8).max(10),
+  compression: z.number().min(8).max(10),
   focus: z.number().min(8).max(10),
   cta: z.number().min(8).max(10),
   boundaries: z.number().min(8).max(10),
